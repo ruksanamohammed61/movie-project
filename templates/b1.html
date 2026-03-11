@@ -1,0 +1,279 @@
+<!-- templates/b1.html -->
+{% extends 'base.html' %}
+{% block title %}Book Tickets for {{ movie.title }}{% endblock %}
+
+{% block content %}
+<style>
+    /* --------------------------------------------------------------
+       Layout
+       -------------------------------------------------------------- */
+    .booking-layout { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .booking-section { background:#3a3a3a; padding:20px; border-radius:8px; margin-bottom:20px; }
+    .left  { flex:2; min-width:400px; }
+    .right { flex:1; min-width:300px; }
+
+    /* --------------------------------------------------------------
+       Header
+       -------------------------------------------------------------- */
+    .movie-header { text-align:center; margin-bottom:20px; }
+    .movie-header h3 { color:#e50914; }
+
+    /* --------------------------------------------------------------
+       Date / Time picker
+       -------------------------------------------------------------- */
+    .date-time-picker button {
+        background:#555; color:#f0f0f0; border:1px solid #666;
+        border-radius:4px; padding:8px; cursor:pointer; margin:2px;
+    }
+    .date-button.active,
+    .time-button.active { background:#e50914; border-color:#e50914; }
+
+    /* --------------------------------------------------------------
+       Seat grid
+       -------------------------------------------------------------- */
+    .seats-grid {
+        display: grid;
+        /* 10 seat columns + 1 column for the row label */
+        grid-template-columns: repeat(10, 30px) auto;
+        gap: 5px;
+        align-items: center;
+    }
+    .seat-row-label {
+        grid-column: 1 / span 1;
+        font-weight: bold;
+        color:#e50914;
+        text-align: right;
+        padding-right:8px;
+    }
+    .seat {
+        width:30px; height:30px;
+        background:#777; border:1px solid #888; border-radius:4px;
+        display:flex; align-items:center; justify-content:center;
+        cursor:pointer; color:#f0f0f0;
+    }
+    .seat.selected { background:#007bff; border-color:#007bff; }
+    .seat.booked   { background:#e50914; cursor:not-allowed; opacity:0.6; }
+
+    /* --------------------------------------------------------------
+       Error messages
+       -------------------------------------------------------------- */
+    .error-message { color:#f44336; margin-top:10px; font-weight:bold; display:none; }
+
+    /* --------------------------------------------------------------
+       Price summary
+       -------------------------------------------------------------- */
+    .price-summary { border-top:1px solid #555; padding-top:15px; margin-top:20px; }
+    .price-summary div { display:flex; justify-content:space-between; margin-bottom:5px; }
+    .price-summary strong { color:#e50914; }
+</style>
+
+<div class="movie-header">
+    <h3>{{ movie.title }}</h3>
+    <p>{{ movie.theater }} ({{ movie.location }})</p>
+    <p>Price per seat: ₹{{ movie.price_per_ticket | int }}</p>
+</div>
+
+<form id="bookingForm" action="{{ url_for('tickets_submission') }}" method="POST">
+    <!-- hidden fields that will be filled by JavaScript -->
+    <input type="hidden" name="movie_title"   value="{{ movie.title }}">
+    <input type="hidden" name="theater_name"  value="{{ movie.theater }}">
+    <input type="hidden" name="selected_date" id="selected_date_input">
+    <input type="hidden" name="selected_time" id="selected_time_input">
+    <input type="hidden" name="selected_seats" id="selected_seats_input">
+    <input type="hidden" name="total_amount"   id="total_amount_input">
+
+    <div class="booking-layout">
+        <!-- ==================== LEFT SIDE ==================== -->
+        <div class="booking-section left">
+            <h4>Select Date &amp; Time</h4>
+            <div class="date-time-picker">
+                <div>
+                    {% for d in movie.date_options %}
+                    <button type="button" class="date-button" data-date="{{ d }}">
+                        {{ d.split(', ')[1] }}<br>{{ d.split(', ')[0] }}
+                    </button>
+                    {% endfor %}
+                </div>
+                <div>
+                    {% for t in movie.time_options %}
+                    <button type="button" class="time-button" data-time="{{ t }}">{{ t }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+            <div id="datetime-error" class="error-message">Please select a date and time.</div>
+
+            <h4>Choose Seats</h4>
+            <div class="screen">SCREEN</div>
+            <div class="seats-grid" id="seats-grid">
+                {% for row_label, seats_in_row in movie.seats_layout.items() %}
+                    <!-- Row label (A, B, C, …) -->
+                    <div class="seat-row-label">{{ row_label }}</div>
+
+                    <!-- Seats for this row -->
+                    {% for seat_num in seats_in_row %}
+                    <div class="seat {% if loop.index > 5 %}booked{% endif %}"
+                         data-row="{{ row_label }}" data-num="{{ seat_num }}"
+                         data-price="{{ movie.price_per_ticket }}">
+                        {{ seat_num }}
+                    </div>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+            <div id="seats-error" class="error-message">Please select at least one seat.</div>
+        </div>
+
+        <!-- ==================== RIGHT SIDE ==================== -->
+        <div class="booking-section right">
+            <h4>Booking Details</h4>
+            <label for="full_name">Full Name</label>
+            <input type="text" id="full_name" name="full_name"
+                   value="{{ session.get('user_name', '') }}" required>
+
+            <label for="phone_number">Phone Number</label>
+            <input type="text" id="phone_number" name="phone_number"
+                   placeholder="Enter phone number" required>
+
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email"
+                   value="{{ session.get('user_email', '') }}" required>
+
+            <h4>Payment Information</h4>
+            <label for="payment_method">Payment Method</label>
+            <select id="payment_method" name="payment_method"
+                    style="background:#4a4a4a; border:1px solid #555; color:#f0f0f0;
+                           border-radius:4px; width:100%; margin-bottom:10px;">
+                <option value="Cash on Delivery">Cash on Delivery</option>
+                <option value="Credit/Debit Card">Credit/Debit Card (demo only)</option>
+                <option value="UPI">UPI (demo only)</option>
+            </select>
+
+            <div class="price-summary">
+                <div>
+                    <span>Ticket Price (₹{{ movie.price_per_ticket | int }} × <span id="num_tickets">0</span>)</span>
+                    <span id="sub_total_price">₹0</span>
+                </div>
+                <div>
+                    <span>Service Fee</span>
+                    <span>₹17</span>
+                </div>
+                <div style="font-size:1.2em;">
+                    <strong>Total Amount</strong>
+                    <strong id="total_price">₹0</strong>
+                </div>
+            </div>
+
+            <button type="submit" class="button button-primary"
+                    style="width:100%; margin-top:20px;">Confirm Booking</button>
+        </div>
+    </div>
+</form>
+
+<script>
+    // ------------------------------------------------------------------
+    // State variables
+    // ------------------------------------------------------------------
+    let selectedDate   = null;
+    let selectedTime   = null;
+    let selectedSeats  = [];          // e.g., ["A1", "B5"]
+    const pricePerTicket = {{ movie.price_per_ticket }};
+    const serviceFee     = 17;
+
+    const datetimeError = document.getElementById('datetime-error');
+    const seatsError    = document.getElementById('seats-error');
+    const form          = document.getElementById('bookingForm');
+
+    // ------------------------------------------------------------------
+    // Date buttons
+    // ------------------------------------------------------------------
+    document.querySelectorAll('.date-button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.date-button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedDate = btn.dataset.date;
+            document.getElementById('selected_date_input').value = selectedDate;
+            datetimeError.style.display = 'none';
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // Time buttons
+    // ------------------------------------------------------------------
+    document.querySelectorAll('.time-button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.time-button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedTime = btn.dataset.time;
+            document.getElementById('selected_time_input').value = selectedTime;
+            datetimeError.style.display = 'none';
+        });
+    });
+
+    // ------------------------------------------------------------------
+    // Seat selection
+    // ------------------------------------------------------------------
+    document.querySelectorAll('.seat').forEach(seat => {
+        if (!seat.classList.contains('booked')) {   // ignore already‑booked seats
+            seat.addEventListener('click', () => {
+                const row = seat.dataset.row;
+                const num = seat.dataset.num;
+                const seatId = `${row}${num}`;
+
+                if (seat.classList.contains('selected')) {
+                    seat.classList.remove('selected');
+                    selectedSeats = selectedSeats.filter(s => s !== seatId);
+                } else {
+                    seat.classList.add('selected');
+                    selectedSeats.push(seatId);
+                }
+                updatePrice();
+                seatsError.style.display = 'none';
+            });
+        }
+    });
+
+    // ------------------------------------------------------------------
+    // Price calculation
+    // ------------------------------------------------------------------
+    function updatePrice() {
+        const tickets   = selectedSeats.length;
+        const subTotal  = tickets * pricePerTicket;
+        const total     = subTotal + serviceFee;
+
+        document.getElementById('num_tickets').textContent      = tickets;
+        document.getElementById('sub_total_price').textContent = `₹${subTotal}`;
+        document.getElementById('total_price').textContent    = `₹${total}`;
+
+        // hidden fields for Flask
+        document.getElementById('selected_seats_input').value = JSON.stringify(selectedSeats);
+        document.getElementById('total_amount_input').value  = total.toFixed(2);
+    }
+
+    // ------------------------------------------------------------------
+    // Form validation before submission
+    // ------------------------------------------------------------------
+    form.addEventListener('submit', e => {
+        let ok = true;
+
+        if (!selectedDate || !selectedTime) {
+            datetimeError.style.display = 'block';
+            ok = false;
+        } else {
+            datetimeError.style.display = 'none';
+        }
+
+        if (selectedSeats.length === 0) {
+            seatsError.style.display = 'block';
+            ok = false;
+        } else {
+            seatsError.style.display = 'none';
+        }
+
+        if (!ok) {
+            e.preventDefault();   // stop the POST if something missing
+        }
+    });
+
+    // initialise the price display on page load
+    updatePrice();
+</script>
+{% endblock %}

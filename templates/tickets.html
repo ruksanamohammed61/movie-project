@@ -1,0 +1,35 @@
+<!-- templates/tickets.html -->
+{% extends 'base.html' %}
+{% block title %}Booking Confirmed!{% endblock %}
+{% block content %}
+<style>
+    .confirmation-card { background-color: #3a3a3a; padding: 40px; border-radius: 8px; text-align: center; max-width: 600px; margin: 30px auto; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); }
+    .confirmation-card h2 { color: #4CAF50; margin-bottom: 20px; }
+    .movie-ticket { border: 2px dashed #e50914; padding: 30px; margin-top: 30px; border-radius: 10px; background-color: #2a2a2a; }
+    .movie-ticket h3 { color: #e50914; margin-bottom: 20px; }
+    .ticket-details p { margin: 8px 0; font-size: 1.1em; }
+    .ticket-details strong { color: #f0f0f0; }
+    .ticket-details span { color: #bbb; }
+    .total-amount-ticket { font-size: 1.5em; font-weight: bold; color: #e50914; margin-top: 20px; }
+</style>
+
+<div class="confirmation-card">
+    <h2>Booking Confirmed!</h2>
+    <p>Your tickets have been successfully booked. Enjoy the show!</p>
+
+    <div class="movie-ticket">
+        <h3>MOVIE TICKET</h3>
+        <div class="ticket-details">
+            <p><strong>Movie:</strong> <span>{{ booking.movie_title }}</span></p>
+            <p><strong>Theater:</strong> <span>{{ booking.theater_name }}</span></p>
+            <p><strong>Date:</strong> <span>{{ booking.date }}</span></p>
+            <p><strong>Time:</strong> <span>{{ booking.time }}</span></p>
+            <p><strong>Booking ID:</strong> <span>{{ booking.booking_id }}</span></p>
+            <p><strong>Seats:</strong> <span>{{ ', '.join(booking.seats) if booking.seats else 'N/A' }}</span></p>
+            <p><strong>Amount Paid:</strong> <span class="total-amount-ticket">₹{{ booking.amount_paid | int }}</span></p>
+        </div>
+        <p style="margin-top: 30px; font-size: 0.9em; color: #bbb;">Please present this ticket at the counter or scan QR code at the theater entrance.</p>
+    </div>
+    <p style="margin-top: 20px;">Thank you for choosing MovieMagic!</p>
+</div>
+{% endblock %}

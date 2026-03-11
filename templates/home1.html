@@ -1,0 +1,35 @@
+<!-- templates/home1.html -->
+{% extends 'base.html' %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<div style="text-align: center;">
+    <h1>Welcome to MovieMagic</h1>
+    <p>Your one-stop destination for movie tickets in Hyderabad</p>
+
+    <div class="search-bar" style="margin: 30px 0; background-color: #3a3a3a; padding: 20px; border-radius: 8px;">
+        <form action="{{ url_for('search_results') }}" method="GET" style="display: flex; justify-content: center; gap: 10px;">
+            <select name="language" style="background-color: #4a4a4a; border: 1px solid #555; color: #f0f0f0; border-radius: 4px;">
+                <option value="">Language</option>
+                <option value="Telugu">Telugu</option>
+                <option value="Hindi">Hindi</option>
+                <option value="English">English</option>
+            </select>
+            <input type="text" name="city" placeholder="Enter City (e.g., Hyderabad)" style="width: 250px;">
+            <input type="text" name="query" placeholder="Search movies..." style="width: 250px;">
+            <button type="submit" class="button button-primary">Search</button>
+        </form>
+    </div>
+
+    <h2>Top Trending Movies</h2>
+    <div class="movie-grid">
+        {% for movie in movies %}
+        <div class="movie-card">
+            <img src="{{ movie.image }}" alt="{{ movie.title }}">
+            <h4>{{ movie.title }}</h4>
+            <p>{{ movie.genre }}</p>
+            <a href="{{ url_for('b1', movie_title=movie.title.replace(' ', '_'), theater_name='Mirajkar_Cinemas', price='190') }}" class="button button-primary">Book Now</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
